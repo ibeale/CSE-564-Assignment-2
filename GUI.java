@@ -24,6 +24,44 @@ import javax.swing.JLabel;
 // Adapted from https://stackoverflow.com/questions/5801734/how-to-draw-lines-in-java
 public class GUI extends JComponent{
 
+    private ArrayList<Line> lines = new ArrayList<Line>();
+    public FileReader fr = new FileReader();
+    public TSPSolver ts;
+    public boolean isStarted = false;
+    public JPanel buttonsPanel = new JPanel();
+    public JButton clearButton = new JButton("Clear");
+    public JButton toggleRunButton = new JButton("Start");
+    public JButton importButton = new JButton("Import");
+    public JLabel currentFileLabel = new JLabel("Current File: None");
+    public JTextField filePathInput = new JTextField("Enter file path here.", 25);
+
+    public GUI(){
+        buttonsPanel.add(clearButton);
+        buttonsPanel.add(toggleRunButton);
+        buttonsPanel.add(importButton);
+        buttonsPanel.add(filePathInput);
+        buttonsPanel.add(currentFileLabel);
+        toggleRunButton.setEnabled(false);
+        filePathInput.addMouseListener(new MouseAdapter(){
+            @Override
+            public void mouseClicked(MouseEvent e){
+                filePathInput.setText("");
+            }
+        });
+
+        importButton.addActionListener(new importButtonAction(this));
+
+        clearButton.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                clearLines();
+            }
+        });
+        toggleRunButton.addActionListener(new runButtonAction(this));
+
+    }
+
     private static class Line{
         final int x1; 
         final int y1;
@@ -38,10 +76,7 @@ public class GUI extends JComponent{
         }               
     }
 
-    private ArrayList<Line> lines = new ArrayList<Line>();
-    private static FileReader fr = new FileReader();
-    private static TSPSolver ts;
-    public static boolean isStarted = false;
+
 
     public void addLine(int x1, int x2, int x3, int x4) {
         lines.add(new Line(x1,x2,x3,x4));        
@@ -62,63 +97,30 @@ public class GUI extends JComponent{
     }
 
     public static void main(String[] args) {
-        JFrame testFrame = new JFrame();
-        testFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        JFrame mainWindow = new JFrame();
+        mainWindow.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         final GUI comp = new GUI();
         comp.setPreferredSize(new Dimension(800, 800));
-        testFrame.getContentPane().add(comp, BorderLayout.CENTER);
-        JPanel buttonsPanel = new JPanel();
-        JButton clearButton = new JButton("Clear");
-        JButton toggleRunButton = new JButton("Start");
-        JButton importButton = new JButton("Import");
-        JLabel currentFileLabel = new JLabel("Current File: None");
-        JTextField filePathInput = new JTextField("Enter file path here.", 25);
-        toggleRunButton.setEnabled(false);
-        buttonsPanel.add(clearButton);
-        buttonsPanel.add(toggleRunButton);
-        buttonsPanel.add(importButton);
-        buttonsPanel.add(filePathInput);
-        buttonsPanel.add(currentFileLabel);
-        testFrame.getContentPane().add(buttonsPanel, BorderLayout.SOUTH);
-
-        filePathInput.addMouseListener(new MouseAdapter(){
-
-            // Implemented from https://stackoverflow.com/questions/16106605/how-to-delete-text-when-a-user-clicks-a-jtextfield/16106710#16106710
-            @Override
-            public void mouseClicked(MouseEvent e){
-                filePathInput.setText("");
-            }
-        });
-
-        importButton.addActionListener(new importButtonAction(filePathInput, fr, ts, currentFileLabel, toggleRunButton, comp, importButton));
-
-        clearButton.addActionListener(new ActionListener() {
-
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                comp.clearLines();
-            }
-        });
-        toggleRunButton.addActionListener(new runButtonAction(toggleRunButton, comp));
-        testFrame.pack();
-        testFrame.setVisible(true);
+        mainWindow.getContentPane().add(comp, BorderLayout.CENTER);
+        mainWindow.getContentPane().add(comp.buttonsPanel, BorderLayout.SOUTH);
+        mainWindow.pack();
+        mainWindow.setVisible(true);
     }
 
 }
 
 class BackgroundDecorator extends SwingWorker<Void, Void> {
-    private JButton toggleRunButton;
+
     private GUI comp;
 
-    public BackgroundDecorator(JButton toggleRunButton, GUI comp){
-        this.toggleRunButton = toggleRunButton;
+    public BackgroundDecorator(GUI comp){
         this.comp = comp;
     }
 
     @Override
     public Void doInBackground() {
-        if(GUI.isStarted == false){
-            GUI.isStarted = true;
+        if(comp.isStarted == false){
+            comp.isStarted = true;
             double scaleFactor;
             double xScale = ((TSPSolver.maxX - TSPSolver.minX)/800);
             double yScale = ((TSPSolver.maxY - TSPSolver.minY)/800);
@@ -154,88 +156,61 @@ class BackgroundDecorator extends SwingWorker<Void, Void> {
                 }
             }
         }
-        GUI.isStarted = false;
+        comp.isStarted = false;
         return null;
     }
-    // @Override
-    // protected void done() {
-    //     try {
-    //         label.setText(get());
-    //     } catch (Exception ignore) {
-    //     }
-    // }
 
 }
 
 class BackgroundSolver extends SwingWorker<Void, Void>{
     
-    TSPSolver ts;
-    JLabel currentFileLabel;
-    JButton toggleRunButton;
     GUI comp;
     String fileName;
-    JButton inputButton;
 
-    public BackgroundSolver(TSPSolver ts, JLabel currentFileLabel, JButton toggleRunButton, GUI comp, String fileName, JButton inputButton){
-        this.ts = ts;
-        this.currentFileLabel = currentFileLabel;
-        this.toggleRunButton = toggleRunButton;
+    public BackgroundSolver(GUI comp, String fileName){
         this.comp = comp;
         this.fileName = fileName;
-        this.inputButton = inputButton;
     }
 
     @Override
     public Void doInBackground() {
-        inputButton.setEnabled(false);
-        if(ts.calcTSP()){
-            currentFileLabel.setText(String.format("Solve complete. Current File: %s", fileName));
-            toggleRunButton.setEnabled(true);
+        comp.importButton.setEnabled(false);
+        if(comp.ts.calcTSP()){
+            comp.currentFileLabel.setText(String.format("Solve complete. Current File: %s", fileName));
+            comp.toggleRunButton.setEnabled(true);
         }
         else{
-            currentFileLabel.setText("Error Solving TSP.");
-            toggleRunButton.setEnabled(false);
+            comp.currentFileLabel.setText("Error Solving TSP.");
+            comp.toggleRunButton.setEnabled(false);
         }
-        inputButton.setEnabled(true);
+        comp.importButton.setEnabled(true);
         return null;
     }
 }
 
 class importButtonAction implements ActionListener{
 
-    private JTextField filePathInput;
-    private FileReader fr;
-    private TSPSolver ts;
-    private JLabel currentFileLabel;
-    private JButton toggleRunButton;
     private GUI comp;
-    private JButton inputButton;
 
-    public importButtonAction(JTextField filePathInput, FileReader fr, TSPSolver ts, JLabel currentFileLabel, JButton toggleRunButton, GUI comp, JButton inputButton){
-        this.filePathInput = filePathInput;
-        this.fr = fr;
-        this.ts = ts;
-        this.currentFileLabel = currentFileLabel;
-        this.toggleRunButton = toggleRunButton;
+    public importButtonAction(GUI comp){
         this.comp = comp;
-        this.inputButton = inputButton;
     }
 
     public void actionPerformed(ActionEvent e){
-        String fp = filePathInput.getText();
+        String fp = comp.filePathInput.getText();
         String[] pathArr = fp.split("\\\\");
         int lastIdx = pathArr.length - 1;
-        boolean isRead = fr.readFile(fp);
+        boolean isRead = comp.fr.readFile(fp);
         String fileName = pathArr[lastIdx];
         if(isRead){
-            ts = new TSPSolver(fr.cities);
-            currentFileLabel.setText("Solving... Please wait.");
-            BackgroundSolver bs = new BackgroundSolver(ts, currentFileLabel, toggleRunButton, comp, fileName, inputButton);
+            comp.ts = new TSPSolver(comp.fr.cities);
+            comp.currentFileLabel.setText("Solving... Please wait.");
+            BackgroundSolver bs = new BackgroundSolver(comp, fileName);
             bs.execute();
         }
         else{
-            currentFileLabel.setText("ERROR: Invalid file path given.");
-            toggleRunButton.setEnabled(false);
+            comp.currentFileLabel.setText("ERROR: Invalid file path given.");
+            comp.toggleRunButton.setEnabled(false);
         }
     }
 }
@@ -244,8 +219,8 @@ class runButtonAction implements ActionListener{
     BackgroundDecorator dec;
     JLabel currentFileLabel;
 
-    public runButtonAction(JButton toggleRunButton, GUI comp){
-        this.dec = new BackgroundDecorator(toggleRunButton, comp);
+    public runButtonAction(GUI comp){
+        this.dec = new BackgroundDecorator(comp);
     }
 
     public void actionPerformed(ActionEvent e){
