@@ -20,7 +20,6 @@ import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.JLabel;
 
-
 // Adapted from https://stackoverflow.com/questions/5801734/how-to-draw-lines-in-java
 public class GUI extends JComponent{
 
@@ -39,14 +38,12 @@ public class GUI extends JComponent{
     }
 
     private ArrayList<Line> lines = new ArrayList<Line>();
-    private static boolean isStarted = false;
     private static FileReader fr = new FileReader();
     private static TSPSolver ts;
-    private static int stoppedIdx = 0;
 
     public void addLine(int x1, int x2, int x3, int x4) {
         lines.add(new Line(x1,x2,x3,x4));        
-        repaint();
+        paintImmediately(0,0,800,800);
     }
 
     public void clearLines() {
@@ -71,11 +68,11 @@ public class GUI extends JComponent{
         JPanel buttonsPanel = new JPanel();
         JButton clearButton = new JButton("Clear");
         JButton toggleRunButton = new JButton("Start");
-        toggleRunButton.setEnabled(false);
         JLabel information = new JLabel(" | USAGE: After import, please wait for the program to solve the TSP.");
         JButton importButton = new JButton("Import");
         JLabel currentFileLabel = new JLabel("Current File: None");
         JTextField filePathInput = new JTextField("Enter file path here.", 25);
+        toggleRunButton.setEnabled(false);
         buttonsPanel.add(clearButton);
         buttonsPanel.add(toggleRunButton);
         buttonsPanel.add(importButton);
@@ -93,31 +90,7 @@ public class GUI extends JComponent{
             }
         });
 
-        importButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e){
-                String fp = filePathInput.getText();
-                String[] pathArr = fp.split("\\\\");
-                int lastIdx = pathArr.length - 1;
-                boolean isRead = fr.readFile(fp);
-                if(isRead){
-                    ts = new TSPSolver(fr.cities);
-                    if(ts.calcTSP()){
-                        currentFileLabel.setText(String.format("Solve complete. Current File: %s", pathArr[lastIdx]));
-                        toggleRunButton.setEnabled(true);
-                        stoppedIdx = 1;
-                    }
-                    else{
-                        currentFileLabel.setText("Error Solving TSP.");
-                        toggleRunButton.setEnabled(false);
-                    }
-                }
-                else{
-                    currentFileLabel.setText("ERROR: Invalid file path given.");
-                    toggleRunButton.setEnabled(false);
-                }
-            }
-        });
+        importButton.addActionListener(new importButtonAction(filePathInput, fr, ts, currentFileLabel, toggleRunButton));
 
         clearButton.addActionListener(new ActionListener() {
 
@@ -126,59 +99,109 @@ public class GUI extends JComponent{
                 comp.clearLines();
             }
         });
-        toggleRunButton.addActionListener(new ActionListener(){
-
-            @Override
-            public void actionPerformed(ActionEvent e){
-                if(isStarted == false){
-                    isStarted = true;
-                    toggleRunButton.setText("Stop");
-                    double scaleFactor;
-                    double xScale = ((TSPSolver.maxX - TSPSolver.minX)/800);
-                    double yScale = ((TSPSolver.maxY - TSPSolver.minY)/800);
-
-                    scaleFactor = (xScale > yScale) ? xScale : yScale;
-                    System.out.println("Scale Factor: " + scaleFactor);
-                    int i;
-                    for(i = 1; i < TSPSolver.pathTaken.size(); i++){
-                        double city_x1 = TSPSolver.pathTaken.get(i-1).x;
-                        double city_x2 = TSPSolver.pathTaken.get(i).x;
-                        double city_y1 = TSPSolver.pathTaken.get(i-1).y;
-                        double city_y2 = TSPSolver.pathTaken.get(i).y;
-                        int x1 = (int)Math.round((city_x1 - TSPSolver.minX) / scaleFactor);
-                        int x2 = (int)Math.round((city_x2 - TSPSolver.minX) / scaleFactor); 
-                        int y1 = (int)Math.round((city_y1 - TSPSolver.minY) / scaleFactor); 
-                        int y2 = (int)Math.round((city_y2 - TSPSolver.minY) / scaleFactor);
-                        comp.addLine(x1,y1,x2,y2);
-                        // try{
-                        //     TimeUnit.SECONDS.sleep(1); 
-                        // } catch(InterruptedException ie){
-                        //     ie.printStackTrace();
-                        // }
-                    }
-                    double city_x1 = TSPSolver.pathTaken.get(i-1).x;
-                    double city_x2 = TSPSolver.pathTaken.get(0).x;
-                    double city_y1 = TSPSolver.pathTaken.get(i-1).y;
-                    double city_y2 = TSPSolver.pathTaken.get(0).y;
-                    int x1 = (int)Math.round((city_x1 - TSPSolver.minX) / scaleFactor);
-                    int x2 = (int)Math.round((city_x2 - TSPSolver.minX) / scaleFactor); 
-                    int y1 = (int)Math.round((city_y1 - TSPSolver.minY) / scaleFactor); 
-                    int y2 = (int)Math.round((city_y2 - TSPSolver.minY) / scaleFactor);
-                    System.out.println(x1 + " " + y1 + " "+ x2+" "+ y2);
-                    comp.addLine(x1,y1,x2,y2);
-                }
-                else{
-                    isStarted = false;
-                    toggleRunButton.setText("Start");
-                }
-            }
-        });
+        toggleRunButton.addActionListener(new runButtonAction(toggleRunButton, comp));
         testFrame.pack();
         testFrame.setVisible(true);
     }
 
 }
 
+class importButtonAction implements ActionListener{
+
+    private JTextField filePathInput;
+    private FileReader fr;
+    private TSPSolver ts;
+    private JLabel currentFileLabel;
+    private JButton toggleRunButton;
+    private int stoppedIdx;
+
+    public importButtonAction(JTextField filePathInput, FileReader fr, TSPSolver ts, JLabel currentFileLabel, JButton toggleRunButton){
+        this.filePathInput = filePathInput;
+        this.fr = fr;
+        this.ts = ts;
+        this.currentFileLabel = currentFileLabel;
+        this.toggleRunButton = toggleRunButton;
+    }
+
+    public void actionPerformed(ActionEvent e){
+        String fp = filePathInput.getText();
+        String[] pathArr = fp.split("\\\\");
+        int lastIdx = pathArr.length - 1;
+        boolean isRead = fr.readFile(fp);
+        if(isRead){
+            ts = new TSPSolver(fr.cities);
+            if(ts.calcTSP()){
+                currentFileLabel.setText(String.format("Solve complete. Current File: %s", pathArr[lastIdx]));
+                toggleRunButton.setEnabled(true);
+                stoppedIdx = 1;
+            }
+            else{
+                currentFileLabel.setText("Error Solving TSP.");
+                toggleRunButton.setEnabled(false);
+            }
+        }
+        else{
+            currentFileLabel.setText("ERROR: Invalid file path given.");
+            toggleRunButton.setEnabled(false);
+        }
+    }
+}
+
+class runButtonAction implements ActionListener{
+    private boolean isStarted = false;
+    private JButton toggleRunButton;
+    private GUI comp;
+
+    public runButtonAction(JButton toggleRunButton, GUI comp){
+        this.toggleRunButton = toggleRunButton;
+        this.comp = comp;
+    }
+
+    public void actionPerformed(ActionEvent e){
+        if(isStarted == false){
+            isStarted = true;
+            toggleRunButton.setText("Stop");
+            double scaleFactor;
+            double xScale = ((TSPSolver.maxX - TSPSolver.minX)/800);
+            double yScale = ((TSPSolver.maxY - TSPSolver.minY)/800);
+
+            scaleFactor = (xScale > yScale) ? xScale : yScale;
+            int i;
+            for(i = 1; i < TSPSolver.pathTaken.size(); i++){
+                double city_x1 = TSPSolver.pathTaken.get(i-1).x;
+                double city_x2 = TSPSolver.pathTaken.get(i).x;
+                double city_y1 = TSPSolver.pathTaken.get(i-1).y;
+                double city_y2 = TSPSolver.pathTaken.get(i).y;
+                int x1 = (int)Math.round((city_x1 - TSPSolver.minX) / scaleFactor);
+                int x2 = (int)Math.round((city_x2 - TSPSolver.minX) / scaleFactor); 
+                int y1 = (int)Math.round((city_y1 - TSPSolver.minY) / scaleFactor); 
+                int y2 = (int)Math.round((city_y2 - TSPSolver.minY) / scaleFactor);
+                comp.addLine(x1,y1,x2,y2);
+                try{
+                    Thread.sleep(1000);
+                }catch(InterruptedException ie){
+                    System.out.print(ie.getStackTrace());
+                }
+                
+                
+            }
+            double city_x1 = TSPSolver.pathTaken.get(i-1).x;
+            double city_x2 = TSPSolver.pathTaken.get(0).x;
+            double city_y1 = TSPSolver.pathTaken.get(i-1).y;
+            double city_y2 = TSPSolver.pathTaken.get(0).y;
+            int x1 = (int)Math.round((city_x1 - TSPSolver.minX) / scaleFactor);
+            int x2 = (int)Math.round((city_x2 - TSPSolver.minX) / scaleFactor); 
+            int y1 = (int)Math.round((city_y1 - TSPSolver.minY) / scaleFactor); 
+            int y2 = (int)Math.round((city_y2 - TSPSolver.minY) / scaleFactor);
+            System.out.println(x1 + " " + y1 + " "+ x2+" "+ y2);
+            comp.addLine(x1,y1,x2,y2);
+        }
+        else{
+            isStarted = false;
+            toggleRunButton.setText("Start");
+        }
+    }
+}
 
 class City{
     public int cityID;
@@ -195,7 +218,6 @@ class City{
         return "CityID: " + this.cityID + " x: " + this.x + " y: " + this.y;
     }
 }
-
 
 class TSPSolver{
     public static ArrayList<City> pathTaken = new ArrayList<City>();
@@ -279,7 +301,6 @@ class TSPSolver{
         
     }
 }
-
 
 class FileReader{
     public int dimensions;
